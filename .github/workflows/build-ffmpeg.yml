@@ -1,0 +1,125 @@
+name: FFmpeg Builder
+
+on:
+  schedule:
+    # Run weekly on Monday at 00:00 UTC
+    - cron: "0 0 * * 1"
+  workflow_dispatch:
+    # Allow manual triggering of the workflow
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Build FFmpeg for multiple architectures
+        id: build
+        run: |
+          chmod +x build-ffmpeg.sh
+          ./build-ffmpeg.sh
+          # Extract the build timestamp from the latest.txt file
+          TIMESTAMP=$(cat build/latest.txt)
+          echo "timestamp=$TIMESTAMP" >> $GITHUB_OUTPUT
+
+      - name: Get current date
+        id: date
+        run: echo "date=$(date +'%Y-%m-%d')" >> $GITHUB_OUTPUT
+
+      - name: Generate release metadata
+        run: |
+          TIMESTAMP="${{ steps.build.outputs.timestamp }}"
+          BUILD_DIR="build/${TIMESTAMP}"
+          ARCHIVE_DIR="build/archive/${TIMESTAMP}"
+
+          echo "# FFmpeg Minimized Build (${{ steps.date.outputs.date }})" > release-notes.md
+          echo "" >> release-notes.md
+          echo "This build contains minimized FFmpeg binaries for multiple architectures created on ${{ steps.date.outputs.date }}." >> release-notes.md
+          echo "Build ID: ${TIMESTAMP}" >> release-notes.md
+          echo "" >> release-notes.md
+
+          echo "## Supported Architectures" >> release-notes.md
+          echo "- AWS Lambda ARM64 (Amazon lambda/provided:al2023)" >> release-notes.md
+          echo "- AWS Lambda x86_64 (Amazon lambda/provided:al2023)" >> release-notes.md
+          echo "" >> release-notes.md
+
+          echo "## AWS Lambda ARM64 Build Configuration" >> release-notes.md
+          echo "```" >> release-notes.md
+          grep -A 50 "./configure" Dockerfile.arm64 | grep -B 50 "make -j" >> release-notes.md
+          echo "```" >> release-notes.md
+          echo "" >> release-notes.md
+
+          echo "## AWS Lambda x86_64 Build Configuration" >> release-notes.md
+          echo "```" >> release-notes.md
+          grep -A 50 "./configure" Dockerfile.x86_64 | grep -B 50 "make -j" >> release-notes.md
+          echo "```" >> release-notes.md
+          echo "" >> release-notes.md
+
+          echo "## License Information" >> release-notes.md
+          echo "This build may include components under the GPL license and/or other licenses." >> release-notes.md
+          echo "Please refer to the [FFmpeg License](https://ffmpeg.org/legal.html) for more details." >> release-notes.md
+          echo "" >> release-notes.md
+
+          echo "## File Details" >> release-notes.md
+          echo "### AWS Lambda ARM64" >> release-notes.md
+          echo "```" >> release-notes.md
+          ls -lh ${BUILD_DIR}/arm64/bin/ >> release-notes.md
+          echo "```" >> release-notes.md
+          echo "" >> release-notes.md
+
+          echo "### AWS Lambda x86_64" >> release-notes.md
+          echo "```" >> release-notes.md
+          ls -lh ${BUILD_DIR}/x86_64/bin/ >> release-notes.md
+          echo "```" >> release-notes.md
+          echo "" >> release-notes.md
+
+          echo "## Archives" >> release-notes.md
+          echo "- ${ARCHIVE_DIR}/ffmpeg-arm64_${TIMESTAMP}.zip" >> release-notes.md
+          echo "- ${ARCHIVE_DIR}/ffmpeg-x86_64_${TIMESTAMP}.zip" >> release-notes.md
+          echo "" >> release-notes.md
+
+          # Include the build summary
+          echo "## Build Summary" >> release-notes.md
+          cat ${BUILD_DIR}/summary.txt >> release-notes.md
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          name: "FFmpeg Build ${{ steps.date.outputs.date }}"
+          tag_name: "build-${{ steps.date.outputs.date }}"
+          body_path: release-notes.md
+          files: |
+            build/archive/${{ steps.build.outputs.timestamp }}/ffmpeg-arm64_${{ steps.build.outputs.timestamp }}.zip
+            build/archive/${{ steps.build.outputs.timestamp }}/ffmpeg-x86_64_${{ steps.build.outputs.timestamp }}.zip
+            build/${{ steps.build.outputs.timestamp }}/arm64/bin/ffmpeg
+            build/${{ steps.build.outputs.timestamp }}/arm64/bin/ffprobe
+            build/${{ steps.build.outputs.timestamp }}/x86_64/bin/ffmpeg
+            build/${{ steps.build.outputs.timestamp }}/x86_64/bin/ffprobe
+            build/${{ steps.build.outputs.timestamp }}/summary.txt
+            build/latest.txt
+          fail_on_unmatched_files: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Archive build artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: ffmpeg-build-${{ steps.build.outputs.timestamp }}
+          path: |
+            build/${{ steps.build.outputs.timestamp }}/
+            build/archive/${{ steps.build.outputs.timestamp }}/
+            build/latest.txt
+          retention-days: 90
+
+      - name: Clean up Docker images
+        run: |
+          docker rmi ffmpeg-arm64-lambda-builder ffmpeg-x86_64-lambda-builder || true
+          echo "Docker images removed."

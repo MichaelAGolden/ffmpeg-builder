@@ -1,0 +1,18 @@
+# Build output
+build/
+output/
+archive/
+
+
+# Release notes
+release-notes.md
+
+# System files
+.DS_Store
+Thumbs.db
+
+# IDE files
+.idea/
+.vscode/
+*.swp
+*.swo 
