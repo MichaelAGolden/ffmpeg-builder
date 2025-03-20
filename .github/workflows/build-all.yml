@@ -104,7 +104,7 @@ jobs:
           echo "Zip package: build/archive/${TIMESTAMP}/${ZIP_NAME/.zip/_${TIMESTAMP}.zip}" >> "build/${TIMESTAMP}/${ARCH}/build_info.txt"
 
       - name: Upload artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: ffmpeg-${{ matrix.config.arch }}-build
           path: build/archive/${TIMESTAMP}
