@@ -72,14 +72,6 @@ RUN cd /ffmpeg_sources && \
   make -j$(nproc) && \
   make install
 
-# Create FFmpeg version script
-RUN echo '#!/bin/sh\n\
-  if [ -f "/ffmpeg_build/bin/ffmpeg" ]; then\n\
-  /ffmpeg_build/bin/ffmpeg -version | head -n 1 | cut -d" " -f3\n\
-  else\n\
-  echo "ffmpeg-snapshot"\n\
-  fi' > /ffmpeg_sources/ffmpeg_version.sh && \
-  chmod +x /ffmpeg_sources/ffmpeg_version.sh
 
 # Build FFmpeg
 RUN cd /ffmpeg_sources && \
