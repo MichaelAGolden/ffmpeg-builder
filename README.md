@@ -110,7 +110,9 @@ To add your configuration to the build system:
 
 ## License
 
-This project is provided as a build pipeline template and does not distribute any FFmpeg binaries directly. The resulting binaries from this build process may include components under GPL and other licenses. Please refer to the [FFmpeg License](https://ffmpeg.org/legal.html) for more details.
+This project and it's template repository is MIT licensed as it just provides a build pipeline and does not distribute any FFmpeg binaries directly.
+
+However, the resulting binaries from this build process may include components under GPL and other licenses. Please refer to the [FFmpeg License](https://ffmpeg.org/legal.html) for more details.
 
 ## Contributing
 
