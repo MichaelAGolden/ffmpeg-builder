@@ -18,6 +18,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: arm64,amd64
+
       - name: Setup Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -29,6 +34,12 @@ jobs:
           # Extract the build timestamp from the latest.txt file
           TIMESTAMP=$(cat build/latest.txt)
           echo "timestamp=$TIMESTAMP" >> $GITHUB_OUTPUT
+          # Extract the FFmpeg version
+          FFMPEG_VERSION=$(grep -oP "ffmpeg-\K[0-9]+\.[0-9]+\.[0-9]+" build/${TIMESTAMP}/version.txt || echo "snapshot")
+          echo "ffmpeg_version=$FFMPEG_VERSION" >> $GITHUB_OUTPUT
+          # Extract the AL2023 version
+          AL2023_VERSION=$(grep -oP "Amazon Linux release \K[0-9]+\.[0-9]+" build/${TIMESTAMP}/al2023-version.txt || echo "latest")
+          echo "al2023_version=$AL2023_VERSION" >> $GITHUB_OUTPUT
 
       - name: Get current date
         id: date
@@ -37,6 +48,8 @@ jobs:
       - name: Generate release metadata
         run: |
           TIMESTAMP="${{ steps.build.outputs.timestamp }}"
+          FFMPEG_VERSION="${{ steps.build.outputs.ffmpeg_version }}"
+          AL2023_VERSION="${{ steps.build.outputs.al2023_version }}"
           BUILD_DIR="build/${TIMESTAMP}"
           ARCHIVE_DIR="build/archive/${TIMESTAMP}"
 
@@ -44,6 +57,8 @@ jobs:
           echo "" >> release-notes.md
           echo "This build contains minimized FFmpeg binaries for multiple architectures created on ${{ steps.date.outputs.date }}." >> release-notes.md
           echo "Build ID: ${TIMESTAMP}" >> release-notes.md
+          echo "FFmpeg Version: ${FFMPEG_VERSION}" >> release-notes.md
+          echo "Amazon Linux 2023 Version: ${AL2023_VERSION}" >> release-notes.md
           echo "" >> release-notes.md
 
           echo "## Supported Architectures" >> release-notes.md
@@ -90,33 +105,16 @@ jobs:
           echo "## Build Summary" >> release-notes.md
           cat ${BUILD_DIR}/summary.txt >> release-notes.md
 
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v1
-        with:
-          name: "FFmpeg Build ${{ steps.date.outputs.date }}"
-          tag_name: "build-${{ steps.date.outputs.date }}"
-          body_path: release-notes.md
-          files: |
-            build/archive/${{ steps.build.outputs.timestamp }}/ffmpeg-arm64_${{ steps.build.outputs.timestamp }}.zip
-            build/archive/${{ steps.build.outputs.timestamp }}/ffmpeg-x86_64_${{ steps.build.outputs.timestamp }}.zip
-            build/${{ steps.build.outputs.timestamp }}/arm64/bin/ffmpeg
-            build/${{ steps.build.outputs.timestamp }}/arm64/bin/ffprobe
-            build/${{ steps.build.outputs.timestamp }}/x86_64/bin/ffmpeg
-            build/${{ steps.build.outputs.timestamp }}/x86_64/bin/ffprobe
-            build/${{ steps.build.outputs.timestamp }}/summary.txt
-            build/latest.txt
-          fail_on_unmatched_files: false
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Archive build artifacts
+      - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: ffmpeg-build-${{ steps.build.outputs.timestamp }}
+          name: ffmpeg-al2023-${{ steps.build.outputs.ffmpeg_version }}-${{ steps.date.outputs.date }}
           path: |
-            build/${{ steps.build.outputs.timestamp }}/
-            build/archive/${{ steps.build.outputs.timestamp }}/
-            build/latest.txt
+            build/${{ steps.build.outputs.timestamp }}/*/bin/
+            build/archive/${{ steps.build.outputs.timestamp }}/*.zip
+            build/${{ steps.build.outputs.timestamp }}/summary.txt
+            build/${{ steps.build.outputs.timestamp }}/version.txt
+            build/${{ steps.build.outputs.timestamp }}/al2023-version.txt
           retention-days: 90
 
       - name: Clean up Docker images

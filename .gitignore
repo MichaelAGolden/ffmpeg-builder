@@ -2,7 +2,7 @@
 build/
 output/
 archive/
-
+logs/
 
 # Release notes
 release-notes.md

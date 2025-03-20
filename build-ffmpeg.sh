@@ -20,12 +20,13 @@ build_for_architecture() {
     local dockerfile=$2
     local output_dir=$3
     local zip_name=$4
+    local platform=$5
     
     echo -e "${YELLOW}Building FFmpeg for ${arch}...${NC}"
     
-    # Build the Docker image
-    echo -e "${YELLOW}Building Docker image for ${arch}...${NC}"
-    docker build -t ffmpeg-${arch}-builder -f ${dockerfile} .
+    # Build the Docker image with appropriate platform
+    echo -e "${YELLOW}Building Docker image for ${arch} (platform: ${platform})...${NC}"
+    docker buildx build --platform ${platform} --load -t ffmpeg-${arch}-builder -f ${dockerfile} .
     
     if [ $? -ne 0 ]; then
         echo -e "${RED}Failed to build Docker image for ${arch}.${NC}"
@@ -40,6 +41,32 @@ build_for_architecture() {
         echo -e "${RED}Failed to create container from the image for ${arch}.${NC}"
         return 1
     fi
+    
+    # Extract version information
+    echo -e "${YELLOW}Extracting version information...${NC}"
+    # Create a temporary script to get versions
+    cat > /tmp/get_versions.sh << 'EOF'
+#!/bin/sh
+# Get FFmpeg version
+if [ -f /ffmpeg_sources/ffmpeg/ffmpeg_version.sh ]; then
+    sh /ffmpeg_sources/ffmpeg/ffmpeg_version.sh
+else
+    echo "ffmpeg-snapshot"
+fi
+
+# Get Amazon Linux 2023 version
+cat /etc/system-release
+EOF
+    
+    chmod +x /tmp/get_versions.sh
+    docker cp /tmp/get_versions.sh $container_id:/tmp/
+    docker exec $container_id /tmp/get_versions.sh > ${output_dir}/version_info.txt
+    
+    # Extract FFmpeg version
+    grep -v "Amazon Linux" ${output_dir}/version_info.txt | head -1 > ${BUILD_DIR}/version.txt
+    
+    # Extract AL2023 version
+    grep "Amazon Linux" ${output_dir}/version_info.txt > ${BUILD_DIR}/al2023-version.txt
     
     # Save the build logs
     docker logs $container_id > ${output_dir}/build.log 2>&1
@@ -62,29 +89,26 @@ build_for_architecture() {
     # Create deployment package
     echo -e "\n${YELLOW}Creating deployment package for ${arch}...${NC}"
     
-    # Include timestamp in the filename
-    zip_name_with_timestamp=$(echo $zip_name | sed "s/.zip/_${TIMESTAMP}.zip/")
-    zip_path_with_timestamp="${ARCHIVE_DIR}/${zip_name_with_timestamp}"
-    
-    # Create a symbolic link for the latest version
-    ln -sf "${zip_name_with_timestamp}" "${ARCHIVE_DIR}/${zip_name}"
+    # Include timestamp and architecture in the filename
+    zip_path="${ARCHIVE_DIR}/ffmpeg-${arch}_${TIMESTAMP}.zip"
     
     # Create zip file
     cd ${output_dir}
-    zip -r "${OLDPWD}/${zip_path_with_timestamp}" bin/
+    zip -r "${OLDPWD}/${zip_path}" bin/
     cd - > /dev/null
     
-    echo -e "${GREEN}Deployment package created: ${zip_name_with_timestamp}${NC}"
-    echo -e "${GREEN}Package location: ${zip_path_with_timestamp}${NC}"
-    ls -lh "${zip_path_with_timestamp}"
+    echo -e "${GREEN}Deployment package created: $(basename ${zip_path})${NC}"
+    echo -e "${GREEN}Package location: ${zip_path}${NC}"
+    ls -lh "${zip_path}"
     
     # Record file info for reference
     echo -e "Build completed at: $(date)" > "${output_dir}/build_info.txt"
     echo -e "Architecture: ${arch}" >> "${output_dir}/build_info.txt"
+    echo -e "Platform: ${platform}" >> "${output_dir}/build_info.txt"
     echo -e "Dockerfile: ${dockerfile}" >> "${output_dir}/build_info.txt"
     echo -e "Binary sizes:" >> "${output_dir}/build_info.txt"
     ls -lh ${output_dir}/bin/ >> "${output_dir}/build_info.txt"
-    echo -e "Zip package: ${zip_path_with_timestamp}" >> "${output_dir}/build_info.txt"
+    echo -e "Zip package: ${zip_path}" >> "${output_dir}/build_info.txt"
     
     return 0
 }
@@ -96,10 +120,14 @@ echo -e "${YELLOW}Build ID: ${TIMESTAMP}${NC}"
 echo -e "${YELLOW}All outputs will be in ${BUILD_DIR} and ${ARCHIVE_DIR}${NC}"
 
 # Build for ARM64 (Amazon lambda/provided:al2023)
-build_for_architecture "arm64-lambda-provided-al2023" "Dockerfile.arm64" "${BUILD_DIR}/arm64" "ffmpeg-arm64.zip"
+build_for_architecture "arm64" "Dockerfile.arm64" "${BUILD_DIR}/arm64" "ffmpeg-arm64.zip" "linux/arm64"
 
 # Build for x86_64 (Amazon lambda/provided:al2023)
-build_for_architecture "x86_64-lambda-provided-al2023" "Dockerfile.x86_64" "${BUILD_DIR}/x86_64" "ffmpeg-x86_64.zip"
+build_for_architecture "x86_64" "Dockerfile.x86_64" "${BUILD_DIR}/x86_64" "ffmpeg-x86_64.zip" "linux/amd64"
+
+# Get FFmpeg and AL2023 versions for the summary
+FFMPEG_VERSION=$(cat ${BUILD_DIR}/version.txt)
+AL2023_VERSION=$(grep -oP "Amazon Linux release \K[0-9]+\.[0-9]+" ${BUILD_DIR}/al2023-version.txt || echo "latest")
 
 # Write a build summary
 echo -e "${YELLOW}Creating build summary...${NC}"
@@ -108,6 +136,8 @@ FFmpeg Build Summary
 ===================
 Build ID: ${TIMESTAMP}
 Date: $(date)
+FFmpeg Version: ${FFMPEG_VERSION}
+Amazon Linux 2023 Version: ${AL2023_VERSION}
 
 This build includes:
 - ARM64 binaries for Amazon lambda/provided:al2023
@@ -119,9 +149,6 @@ Archives:
 
 Build logs and binaries are stored in subdirectories.
 EOF
-
-# Copy the summary to the archive directory too
-cp "${BUILD_DIR}/summary.txt" "${ARCHIVE_DIR}/"
 
 # Create a latest.txt file that contains the current build timestamp
 echo "${TIMESTAMP}" > "build/latest.txt"
