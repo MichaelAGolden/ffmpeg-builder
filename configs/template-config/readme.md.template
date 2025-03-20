@@ -1,0 +1,110 @@
+# My Custom FFmpeg Configuration
+
+## Configuration Overview
+
+Briefly describe what your configuration is designed for. For example:
+
+- Is it targeted at a specific environment (AWS Lambda, Docker, etc.)?
+- Is it focused on a specific use case (audio processing, video encoding, etc.)?
+- What are the key optimizations or features?
+
+## Build Information
+
+- **Base Image**: [Specify the base image here using a link used, e.g., `public.ecr.aws/lambda/provided:al2023-arm64`]()
+- **Target Architecture**: [Specify the target architecture, e.g., ARM64, x86_64]()
+- **Binary Size**: [Approximate size of the resulting binary]()
+
+## Included Libraries
+
+List the external libraries and state their license type included in your build:
+
+- **libfdk_aac**: High-quality AAC audio encoder/decoder
+- **libmp3lame**: MP3 audio encoder/decoder
+- **libopus**: Opus audio codec for excellent compression
+- **Any other libraries**: [license type, with link to license file if available]()
+
+## Enabled Functionality
+
+### Filters
+
+List and describe the filters you've enabled:
+
+- `filter1`: Brief description
+- `filter2`: Brief description
+
+### Muxers (Output Formats)
+
+List the output formats you've enabled:
+
+- Format 1
+- Format 2
+
+### Encoders
+
+List the encoders you've enabled:
+
+- Encoder 1
+- Encoder 2
+
+### Protocols
+
+List the protocols you've enabled:
+
+- Protocol 1
+- Protocol 2
+
+### Demuxers (Input Formats)
+
+List the input formats you've enabled:
+
+- Format 1
+- Format 2
+
+### Decoders
+
+List the decoders you've enabled:
+
+- Decoder 1
+- Decoder 2
+
+### Bitstream Filters
+
+List the bitstream filters you've enabled:
+
+- BSF 1
+- BSF 2
+
+## Disabled Features
+
+Explain which features you've disabled to optimize the build:
+
+- Feature 1
+- Feature 2
+
+## Use Cases
+
+Describe the intended use cases for this configuration:
+
+- Use case 1
+- Use case 2
+
+## Example Commands
+
+Provide some example commands for common tasks with your configuration:
+
+```bash
+# Example 1: Convert audio format
+ffmpeg -i input.mp3 -c:a aac output.aac
+
+# Example 2: Extract audio from video
+ffmpeg -i input.mp4 -vn -c:a copy output.mp3
+
+# Add more examples relevant to your configuration
+```
+
+## License Notice
+
+Include appropriate license information, especially if you're using components with specific licensing requirements. Because these are just the configs and workflows to build the binaries, you need not license this process but you should work out what the resulting license requirements are for the binaries you build and include this here.
+
+Example:
+This build includes components under GPL and other licenses. Please review the [FFmpeg License](https://ffmpeg.org/legal.html) for details about licensing requirements if you distribute this binary.

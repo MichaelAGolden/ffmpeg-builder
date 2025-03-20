@@ -1,0 +1,179 @@
+# Use an appropriate base image for your target environment
+FROM public.ecr.aws/lambda/provided:al2023-arm64
+
+# Install dependencies - add or remove packages as needed
+RUN dnf update -y && \
+  dnf install -y \
+  autoconf \
+  automake \
+  bzip2 \
+  bzip2-devel \
+  cmake \
+  freetype-devel \
+  gcc \
+  gcc-c++ \
+  git \
+  libtool \
+  make \
+  pkgconfig \
+  zlib-devel \
+  tar \
+  gzip
+
+# Set up build directories
+WORKDIR /ffmpeg_build
+ENV HOME="/ffmpeg_build" \
+  PATH="/ffmpeg_build/bin:${PATH}" \
+  PKG_CONFIG_PATH="/ffmpeg_build/lib/pkgconfig"
+
+# Install NASM (required for many encoders)
+RUN mkdir -p /ffmpeg_sources && \
+  cd /ffmpeg_sources && \
+  curl -O -L https://www.nasm.us/pub/nasm/releasebuilds/2.15.05/nasm-2.15.05.tar.bz2 && \
+  tar xjf nasm-2.15.05.tar.bz2 && \
+  cd nasm-2.15.05 && \
+  ./autogen.sh && \
+  ./configure --prefix="/ffmpeg_build" --bindir="/ffmpeg_build/bin" && \
+  make -j$(nproc) && \
+  make install
+
+# Install YASM (required for many encoders)
+RUN cd /ffmpeg_sources && \
+  curl -O -L https://www.tortall.net/projects/yasm/releases/yasm-1.3.0.tar.gz && \
+  tar xzvf yasm-1.3.0.tar.gz && \
+  cd yasm-1.3.0 && \
+  ./configure --prefix="/ffmpeg_build" --bindir="/ffmpeg_build/bin" && \
+  make -j$(nproc) && \
+  make install
+
+# Add additional libraries as needed. Here are some examples:
+
+# Example: Install libfdk_aac (AAC encoder/decoder)
+RUN cd /ffmpeg_sources && \
+  git clone --depth 1 https://github.com/mstorsjo/fdk-aac.git && \
+  cd fdk-aac && \
+  autoreconf -fiv && \
+  ./configure --prefix="/ffmpeg_build" --disable-shared && \
+  make -j$(nproc) && \
+  make install
+
+# Example: Install libmp3lame (MP3 encoder)
+RUN cd /ffmpeg_sources && \
+  curl -O -L https://downloads.sourceforge.net/project/lame/lame/3.100/lame-3.100.tar.gz && \
+  tar xzvf lame-3.100.tar.gz && \
+  cd lame-3.100 && \
+  ./configure --prefix="/ffmpeg_build" --bindir="/ffmpeg_build/bin" --disable-shared --enable-nasm && \
+  make -j$(nproc) && \
+  make install
+
+# Example: Install libopus (Opus codec)
+RUN cd /ffmpeg_sources && \
+  curl -O -L https://archive.mozilla.org/pub/opus/opus-1.3.1.tar.gz && \
+  tar xzvf opus-1.3.1.tar.gz && \
+  cd opus-1.3.1 && \
+  ./configure --prefix="/ffmpeg_build" --disable-shared && \
+  make -j$(nproc) && \
+  make install
+
+# Optional: Install x264 (H.264 video encoder)
+# RUN cd /ffmpeg_sources && \
+#   git clone --depth 1 https://code.videolan.org/videolan/x264.git && \
+#   cd x264 && \
+#   ./configure --prefix="/ffmpeg_build" --bindir="/ffmpeg_build/bin" --enable-static --disable-opencl && \
+#   make -j$(nproc) && \
+#   make install
+
+# Optional: Install libvpx (VP8/VP9 codec)
+# RUN cd /ffmpeg_sources && \
+#   git clone --depth 1 https://chromium.googlesource.com/webm/libvpx.git && \
+#   cd libvpx && \
+#   ./configure --prefix="/ffmpeg_build" --disable-examples --disable-unit-tests --enable-vp9-highbitdepth --as=yasm && \
+#   make -j$(nproc) && \
+#   make install
+
+# Build FFmpeg with your custom configuration
+RUN cd /ffmpeg_sources && \
+  curl -O -L https://ffmpeg.org/releases/ffmpeg-snapshot.tar.bz2 && \
+  tar xjf ffmpeg-snapshot.tar.bz2 && \
+  cd ffmpeg && \
+  ./configure \
+  --prefix="/ffmpeg_build" \
+  --pkg-config-flags="--static" \
+  --extra-cflags="-I/ffmpeg_build/include" \
+  --extra-ldflags="-L/ffmpeg_build/lib" \
+  --extra-libs="-lpthread -lm" \
+  --bindir="/ffmpeg_build/bin" \
+  --enable-gpl \
+  --enable-libfdk_aac \
+  --enable-libmp3lame \
+  --enable-libopus \
+  --enable-nonfree \
+  --disable-debug \
+  --disable-doc \
+  --disable-ffplay \
+  # Customize the following options according to your needs
+  # Filters
+  --disable-filters \
+  --enable-filter=aresample \
+  --enable-filter=atempo \
+  --enable-filter=format \
+  --enable-filter=silencedetect \
+  --enable-filter=volume \
+  # Muxers (output formats)
+  --disable-muxers \
+  --enable-muxer=mp3 \
+  --enable-muxer=aac \
+  --enable-muxer=wav \
+  # Encoders
+  --disable-encoders \
+  --enable-encoder=libmp3lame \
+  --enable-encoder=libfdk_aac \
+  --enable-encoder=aac \
+  # Input/output devices
+  --disable-indevs \
+  --disable-outdevs \
+  # Protocols
+  --disable-protocols \
+  --enable-protocol=file \
+  # Demuxers (input formats)
+  --disable-demuxers \
+  --enable-demuxer=aac \
+  --enable-demuxer=mp3 \
+  --enable-demuxer=mov \
+  --enable-demuxer=mp4 \
+  --enable-demuxer=matroska \
+  --enable-demuxer=wav \
+  # Bitstream filters
+  --disable-bsfs \
+  --enable-bsf=aac_adtstoasc \
+  --enable-bsf=extract_extradata \
+  # Decoders
+  --disable-decoders \
+  --enable-decoder=aac \
+  --enable-decoder=mp3 \
+  --enable-decoder=opus \
+  --enable-decoder=flac \
+  --enable-decoder=pcm_* \
+  --enable-decoder=vorbis \
+  --enable-decoder=wavpack \
+  # Size and optimization options
+  --enable-small \
+  # Architecture-specific options - choose ONE based on your target
+  # For ARM64
+  --enable-cross-compile \
+  --arch=aarch64 \
+  --target-os=linux && \
+  # For x86_64, comment out the above and uncomment these:
+  # --disable-x86asm \
+  # --disable-inline-asm \
+  # --arch=x86_64 && \
+  make -j$(nproc) && \
+  make install && \
+  strip /ffmpeg_build/bin/ffmpeg && \
+  strip /ffmpeg_build/bin/ffprobe
+
+# Show binary sizes
+RUN ls -lh /ffmpeg_build/bin/ffmpeg /ffmpeg_build/bin/ffprobe
+
+# Default command
+CMD ["echo", "FFmpeg build complete. Extract the binaries with docker cp."]

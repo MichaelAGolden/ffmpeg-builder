@@ -1,36 +1,55 @@
-# FFmpeg Builder
+# FFmpeg Builder Template
 
-This repository provides a Docker-based build pipeline for creating minimal, optimized FFmpeg binaries specifically tailored for AWS Lambda using the Amazon Linux 2023 Lambda runtime images (ARM64 and x86_64). It significantly reduces binary size and improves performance over pre-built alternatives. It's easily customizable for other environments and architectures.
+This repository provides a template for creating Docker-based build pipelines for FFmpeg binaries. It includes a complete example for building minimal, optimized FFmpeg binaries tailored for AWS Lambda using Amazon Linux 2023 runtime images.
 
 ## Important Notes
 
-This repository **does not distribute pre-built binaries** to comply with licensing restrictions. To use the binaries, fork this repository and run the builds yourself.
+This repository **does not distribute pre-built binaries** to comply with licensing restrictions. Instead, it provides a template system for you to build your own binaries with configurations tailored to your specific needs.
 
 See the [FFmpeg License](https://ffmpeg.org/legal.html) for licensing details.
 
+## Template System Overview
+
+This template repository is designed to make it easy to build custom FFmpeg binaries for different environments and use cases. It's structured as follows:
+
+- **Configuration Directories**: Each build configuration has its own directory in the `configs/` folder
+- **GitHub Workflows**: Build workflows that can build any configuration in the configs directory
+- **Template Files**: Sample templates to help you create your own configurations
+
+### Available Configurations
+
+- **[ffmpeg-for-lambda](configs/ffmpeg-for-lambda/)**: A minimal, optimized FFmpeg build for AWS Lambda focused on audio processing
+
+### Creating Your Own Configuration
+
+1. Create a new directory in the `configs/` folder (e.g., `configs/my-custom-config/`)
+2. Copy and modify the template files from `configs/template-config/`
+3. Customize the Dockerfile and readme.md to suit your needs
+4. Run the build workflow specifying your custom configuration
+
 ## Features
 
-- Automated builds using GitHub Actions
-- Architecture support:
-  - ARM64 for Amazon lambda/provided:al2023
-  - x86_64 for Amazon lambda/provided:al2023-x86_64
-- Small binary sizes (~3.6MB)
-- Build process pulls from the [latest snapshot of FFmpeg](https://ffmpeg.org/releases/) and the [latest versions of the Amazon Lambda/Provided:AL2023 container images](https://gallery.ecr.aws/lambda/provided) to ensure compatibility at time of build between latest FFmpeg release and latest AmazonLinux 2023 provided lambda container image release.
+- **Configuration Templates**: Easy-to-use templates for creating custom FFmpeg builds
+- **GitHub Actions Integration**: Automated workflows for building all configurations
+- **Modular Design**: Each configuration is self-contained and can be built independently
+- **Comprehensive Documentation**: Detailed readmes for each configuration
 
-## How to Use This Repository
+## How to Use This Template Repository
 
-### Option 1: Fork and Build via GitHub Actions
+### Option 1: Create Your Own Repository from This Template
 
-1. Fork this repository.
-2. Enable GitHub Actions in your fork.
-3. Run the workflow manually or schedule it.
-4. Download binaries from the Actions tab in your fork.
+1. Click the "Use this template" button at the top of this GitHub repository
+2. Create a new repository (public or private) based on this template
+3. Clone your new repository and customize it for your needs
+4. Run the GitHub Actions workflows to build your custom FFmpeg binaries
 
-### Option 2: Local Docker Builds
+### Option 2: Fork and Customize
 
-Ensure Docker is installed (tested on Mac with Apple Silicon).
+1. Fork this repository
+2. Customize the existing configurations or add your own
+3. Run the GitHub Actions workflows to build your custom FFmpeg binaries
 
-## Building Locally
+### Option 3: Local Docker Builds
 
 To build the FFmpeg binaries locally:
 
@@ -38,115 +57,61 @@ To build the FFmpeg binaries locally:
 # Clone repo
 git clone https://github.com/yourusername/ffmpeg-builder.git
 cd ffmpeg-builder
-# Run build script
-./build-ffmpeg.sh
+
+# Build a specific configuration
+docker build -t ffmpeg-arm64-builder -f configs/ffmpeg-for-lambda/Dockerfile.arm64 configs/ffmpeg-for-lambda
+
+# Extract the binaries
+mkdir -p output
+container_id=$(docker create ffmpeg-arm64-builder)
+docker cp $container_id:/ffmpeg_build/bin/ffmpeg output/
+docker cp $container_id:/ffmpeg_build/bin/ffprobe output/
+docker rm $container_id
 ```
 
-Note: You will need to have Docker installed to build the FFmpeg binaries locally. I have only tested this on a Mac running Apple Silicon, I cannot guarantee it will work on other platforms.
+## Repository Structure
 
-This will build FFmpeg for all supported architectures. If you want to build for a specific architecture, you can modify the script before running.
+The repository is organized to make it easy to maintain multiple build configurations:
 
-## Using in AWS Lambda
+- `.github/workflows/` - Contains GitHub Action workflow files for automated builds:
+  - `build-all.yml` - Builds for all architectures in a specific configuration
+  - `build-al2023-arm64.yml` - Dedicated workflow for ARM64
+  - `build-al2023-x86_64.yml` - Dedicated workflow for x86_64
+- `configs/` - Contains different build configurations:
+  - `ffmpeg-for-lambda/` - Configuration for AWS Lambda
+  - `template-config/` - Template files for creating new configurations
 
-### Using the zip file deployment method
+Each configuration directory includes:
 
-I'm learning as I go so this is a work in progress, but I will leave this note here for now regarding how to use the zip file deployment method instead of building your own container image. With the binary size so small for ffmpeg, the benefits of the zip file deployment method seem to significantly outweigh the benefits of building your own container image for ease of maintaining your own container image as the provided container images are regularly updated by AWS for security and bug fixes.
+- `Dockerfile.arm64` - Dockerfile for ARM64 builds
+- `Dockerfile.x86_64` - Dockerfile for x86_64 builds
+- `readme.md` - Documentation specific to that configuration
 
-[Go on AWS Lambda](https://docs.aws.amazon.com/lambda/latest/dg/golang-package.html)
-[Node.js on AWS Lambda](https://docs.aws.amazon.com/lambda/latest/dg/nodejs-package.html)
+## Creating a New Configuration
 
-#### Steps
+To create a new configuration:
 
-1. Download the zip file from the Actions tab in your forked repository
-1. Extract the appropriate binaries to your Lambda deployment package:
+1. Create a new directory in the `configs/` folder
+2. Copy the template files from `configs/template-config/`
+3. Modify the Dockerfile and readme.md to suit your needs
+4. Run the build workflow with your new configuration
 
-   ```bash
-   # For ARM64 Lambda
-   unzip ffmpeg-arm64.zip -d your-lambda-project/
-
-   # For x86_64 Lambda
-   unzip ffmpeg-x86_64.zip -d your-lambda-project/
-   ```
-
-1. Below are examples of how to use the FFmpeg binaries in your Lambda function code for each supported languages. Refer to the [AWS Lambda Documentation on Runtimes](https://docs.aws.amazon.com/lambda/latest/dg/lambda-runtimes.html) on how to use the FFmpeg binaries in your Lambda function code.
-
-   Note: The following examples are how to use the FFmpeg binary to create a clip from an audio file of some length.
-   Both of the following commands will create a 5 second clip from the input.mp3 file starting at 25 seconds and ending at 30 seconds.
-
-   ```bash
-   ffmpeg -i input.mp3 -ss 25 -to 30 -c:a libmp3lame -qscale:a 2 output.mp3
-   ```
-
-   ```javascript
-   const { spawnSync } = require("child_process");
-   const path = require("path");
-
-   exports.handler = async () => {
-     const ffmpegPath = path.join(process.env.LAMBDA_TASK_ROOT, "bin/ffmpeg");
-
-     const result = spawnSync(ffmpegPath, [
-       "-i",
-       "input.mp3",
-       "-ss",
-       "25",
-       "-to",
-       "30",
-       "-c:a",
-       "libmp3lame",
-       "-qscale:a",
-       "2",
-       "/tmp/output.mp3",
-     ]);
-
-     console.log(result.stdout.toString());
-     console.log(result.stderr.toString());
-
-     return { statusCode: 200 };
-   };
-   ```
-
-```go
-// Go example
-package main
-
-import (
-    "context"
-    "fmt"
-    "os/exec"
-
-    "github.com/aws/aws-lambda-go/lambda"
-)
-
-func HandleRequest(ctx context.Context, event []byte) (string, error) {
-    cmd := exec.Command("ffmpeg", "-i", "input.mp3", "-ss", "25", "-to", "30", "-c:a", "libmp3lame", "-qscale:a", "2", "output.mp3")
-    return cmd.Run()
-}
-
-func main() {
-    lambda.Start(HandleRequest)
-}
+```bash
+# Create a new configuration
+mkdir -p configs/my-custom-config
+cp configs/template-config/* configs/my-custom-config/
+# Edit the files as needed
 ```
 
-## Customization
+To add your configuration to the build system:
 
-If you need to customize the FFmpeg build, modify the appropriate Dockerfile to add or remove:
-
-- Libraries (e.g., adding libvpx, x264)
-- Encoders/decoders
-- Filters
-- Other FFmpeg components
-
-The project includes the following Dockerfiles:
-
-- `Dockerfile.arm64` - For AWS Lambda ARM64 builds
-- `Dockerfile.x86_64` - For AWS Lambda x86_64 builds
-
-After modifying, commit the changes and run the GitHub Action workflow or build locally.
+1. Update the matrix configuration in `.github/workflows/build-all.yml`
+2. Create a dedicated workflow file if needed (optional)
 
 ## License
 
-This project is provided as a build pipeline and does not distribute any FFmpeg binaries directly. The resulting binaries from this build process may include components under GPL and other licenses. Please refer to the [FFmpeg License](https://ffmpeg.org/legal.html) for more details.
+This project is provided as a build pipeline template and does not distribute any FFmpeg binaries directly. The resulting binaries from this build process may include components under GPL and other licenses. Please refer to the [FFmpeg License](https://ffmpeg.org/legal.html) for more details.
 
 ## Contributing
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+Contributions are welcome! Please feel free to submit a Pull Request to add new configurations or improve existing ones.
