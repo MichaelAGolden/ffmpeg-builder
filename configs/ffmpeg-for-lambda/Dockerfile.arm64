@@ -1,4 +1,4 @@
-FROM public.ecr.aws/lambda/provided:al2023-arm64
+FROM public.ecr.aws/amazonlinux/amazonlinux:2023
 
 # Install dependencies
 RUN dnf update -y && \
@@ -22,8 +22,7 @@ RUN dnf update -y && \
 # Set up build directories
 WORKDIR /ffmpeg_build
 ENV HOME="/ffmpeg_build" \
-  PATH="/ffmpeg_build/bin:${PATH}" \
-  PKG_CONFIG_PATH="/ffmpeg_build/lib/pkgconfig"
+  PATH="/ffmpeg_build/bin:${PATH}"
 
 # Install NASM
 RUN mkdir -p /ffmpeg_sources && \
@@ -141,8 +140,7 @@ RUN cd /ffmpeg_sources && \
   strip /ffmpeg_build/bin/ffmpeg && \
   strip /ffmpeg_build/bin/ffprobe
 
-# Show binary sizes
-RUN ls -lh /ffmpeg_build/bin/ffmpeg /ffmpeg_build/bin/ffprobe
 
-# Default command
-CMD ["echo", "FFmpeg build complete. Extract the binaries with docker cp."] 
+# Copy the version script into the sources directory
+COPY ffmpeg_version.sh /ffmpeg_sources/
+

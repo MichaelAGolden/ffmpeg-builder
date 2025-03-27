@@ -17,8 +17,10 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -27,28 +29,42 @@ jobs:
           mkdir -p build/${TIMESTAMP}/${ARCH}/bin
           mkdir -p build/archive/${TIMESTAMP}
 
+      - name: Generate ffmpeg_version.sh
+        run: |
+          VERSION_STRING="lambda-${ARCH}-${TIMESTAMP}"
+
+          echo "Generating version script with version: ${VERSION_STRING}"
+
+          cat <<-EOF > ${CONFIG_DIR}/ffmpeg_version.sh
+          #!/bin/sh
+          echo "${VERSION_STRING}"
+          exit 0
+          EOF
+
+          chmod +x ${CONFIG_DIR}/ffmpeg_version.sh
+          echo "ffmpeg_version.sh created in ${CONFIG_DIR}"
+
       - name: Build Docker image
         run: |
           echo "Building FFmpeg for ${ARCH}..."
           echo "Building Docker image for ${ARCH}..."
-          docker build -t ffmpeg-${ARCH}-builder -f ${DOCKERFILE} ${CONFIG_DIR}
+          docker buildx build \
+            --platform linux/arm64 \
+            -t ffmpeg-${ARCH}-builder \
+            -f ${DOCKERFILE} ${CONFIG_DIR} --load
 
       - name: Extract binaries from container
         run: |
           echo "Extracting FFmpeg binaries from container..."
           container_id=$(docker create ffmpeg-${ARCH}-builder)
 
-          # Save the build logs
           docker logs $container_id > build/${TIMESTAMP}/${ARCH}/build.log 2>&1
 
-          # Copy the binaries out of the container
           docker cp $container_id:/ffmpeg_build/bin/ffmpeg build/${TIMESTAMP}/${ARCH}/bin/
           docker cp $container_id:/ffmpeg_build/bin/ffprobe build/${TIMESTAMP}/${ARCH}/bin/
 
-          # Remove the container
           docker rm $container_id > /dev/null
 
-          # Make binaries executable
           chmod +x build/${TIMESTAMP}/${ARCH}/bin/ffmpeg build/${TIMESTAMP}/${ARCH}/bin/ffprobe
 
           echo "Extraction complete for ${ARCH}!"
@@ -59,20 +75,17 @@ jobs:
         run: |
           echo "Creating deployment package for ${ARCH}..."
 
-          # Include timestamp in the filename
           zip_name_with_timestamp=${ZIP_NAME/.zip/_${TIMESTAMP}.zip}
           zip_path_with_timestamp="build/archive/${TIMESTAMP}/${zip_name_with_timestamp}"
 
-          # Create a symbolic link for the latest version
           ln -sf "${zip_name_with_timestamp}" "build/archive/${TIMESTAMP}/${ZIP_NAME}"
 
-          # Create zip file
           cd build/${TIMESTAMP}/${ARCH}
           zip -r "${GITHUB_WORKSPACE}/build/archive/${TIMESTAMP}/${zip_name_with_timestamp}" bin/
           cd - > /dev/null
 
-          # Copy configuration readme if it exists
           if [ -f "${CONFIG_DIR}/readme.md" ]; then
+            echo "Copying readme.md to build/archive/${TIMESTAMP}/ffmpeg-${ARCH}-readme.md"
             cp "${CONFIG_DIR}/readme.md" "build/archive/${TIMESTAMP}/ffmpeg-${ARCH}-readme.md"
           fi
 
@@ -82,7 +95,6 @@ jobs:
 
       - name: Create build info
         run: |
-          # Record file info for reference
           echo "Build completed at: $(date)" > "build/${TIMESTAMP}/${ARCH}/build_info.txt"
           echo "Architecture: ${ARCH}" >> "build/${TIMESTAMP}/${ARCH}/build_info.txt"
           echo "Configuration: ${CONFIG_DIR}" >> "build/${TIMESTAMP}/${ARCH}/build_info.txt"
@@ -110,10 +122,8 @@ jobs:
           Build logs and binaries are stored in subdirectories.
           EOF
 
-          # Copy the summary to the archive directory too
           cp "build/${TIMESTAMP}/summary.txt" "build/archive/${TIMESTAMP}/"
 
-          # Create a latest.txt file that contains the current build timestamp
           echo "${TIMESTAMP}" > "build/latest.txt"
 
           echo "Build completed successfully!"
