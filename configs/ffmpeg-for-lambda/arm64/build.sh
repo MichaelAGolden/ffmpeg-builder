@@ -2,11 +2,11 @@
 set -eo pipefail # Exit on error, handle pipeline errors
 
 ARCH="arm64"
-CONFIG_DIR="configs/ffmpeg-for-lambda/arm64"
-DOCKERFILE="${CONFIG_DIR}/Dockerfile.arm64"
+CONFIG_DIR="."
+DOCKERFILE="Dockerfile.arm64"
 
 # Default settings
-TIMESTAMP="local_$(date +%Y%m%d_%H%M%S)"
+TIMESTAMP="local_$(date +%Y%m%dT%H%M%S)"
 OUTPUT_DIR="build/${TIMESTAMP}"
 
 # Parse command line arguments

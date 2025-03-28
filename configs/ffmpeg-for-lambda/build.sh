@@ -59,14 +59,14 @@ echo "Output directories created under ${OUTPUT_DIR}"
 # Build AMD64 if enabled
 if [ "$BUILD_AMD64" = true ]; then
   echo "=== Starting AMD64 build ==="
-  ./configs/ffmpeg-for-lambda/amd64/build.sh --timestamp "${TIMESTAMP}" --output-dir "${OUTPUT_DIR}"
+  ./amd64/build.sh --timestamp "${TIMESTAMP}" --output-dir "${OUTPUT_DIR}"
   echo "=== AMD64 build completed ==="
 fi
 
 # Build ARM64 if enabled
 if [ "$BUILD_ARM64" = true ]; then
   echo "=== Starting ARM64 build ==="
-  ./configs/ffmpeg-for-lambda/arm64/build.sh --timestamp "${TIMESTAMP}" --output-dir "${OUTPUT_DIR}"
+  ./arm64/build.sh --timestamp "${TIMESTAMP}" --output-dir "${OUTPUT_DIR}"
   echo "=== ARM64 build completed ==="
 fi
 
