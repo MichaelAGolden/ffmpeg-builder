@@ -28,7 +28,7 @@ jobs:
 
       - name: Build FFmpeg for ARM64
         run: |
-          ./build.sh --arm64-only --timestamp ${TIMESTAMP}
+          ./configs/ffmpeg-for-lambda/build.sh --arm64-only --timestamp ${TIMESTAMP}
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
