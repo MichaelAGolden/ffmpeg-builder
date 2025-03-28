@@ -23,7 +23,7 @@ jobs:
 
       - name: Set file permissions
         run: |
-          chmod +x build.sh
+          chmod +x configs/ffmpeg-for-lambda/build.sh
           chmod +x configs/ffmpeg-for-lambda/arm64/build.sh
 
       - name: Build FFmpeg for ARM64
