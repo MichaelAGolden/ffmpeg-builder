@@ -1,0 +1,38 @@
+name: ffmpeg-arm64
+
+on:
+  workflow_dispatch:
+    # manual trigger
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      TIMESTAMP: ${{ github.run_id }}_${{ github.run_number }}
+      ARCH: arm64
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Set file permissions
+        run: |
+          chmod +x build.sh
+          chmod +x configs/ffmpeg-for-lambda/arm64/build.sh
+
+      - name: Build FFmpeg for ARM64
+        run: |
+          ./build.sh --arm64-only --timestamp ${TIMESTAMP}
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ffmpeg-arm64-build
+          path: build/archive/${TIMESTAMP}
+          retention-days: 7

@@ -1,0 +1,35 @@
+name: ffmpeg-amd64
+
+on:
+  workflow_dispatch:
+    # manual trigger
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      TIMESTAMP: ${{ github.run_id }}_${{ github.run_number }}
+      ARCH: amd64
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Set file permissions
+        run: |
+          chmod +x build.sh
+          chmod +x configs/ffmpeg-for-lambda/amd64/build.sh
+
+      - name: Build FFmpeg for AMD64
+        run: |
+          ./build.sh --amd64-only --timestamp ${TIMESTAMP}
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ffmpeg-amd64-build
+          path: build/archive/${TIMESTAMP}
+          retention-days: 7
