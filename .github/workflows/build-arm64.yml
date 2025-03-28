@@ -28,11 +28,22 @@ jobs:
 
       - name: Build FFmpeg for ARM64
         run: |
-          ./configs/ffmpeg-for-lambda/build.sh --arm64-only --timestamp ${TIMESTAMP}
+          cd configs/ffmpeg-for-lambda/
+          ./build.sh --arm64-only --timestamp ${TIMESTAMP}
+
+      - name: List artifact directories
+        run: |
+          echo "Checking for build artifacts..."
+          echo "Working directory: $(pwd)"
+          ls -la configs/ffmpeg-for-lambda/build/ || echo "configs/ffmpeg-for-lambda/build/ directory not found"
+          ls -la configs/ffmpeg-for-lambda/build/archive/ || echo "configs/ffmpeg-for-lambda/build/archive/ directory not found"
+          ls -la configs/ffmpeg-for-lambda/build/archive/$TIMESTAMP/ || echo "configs/ffmpeg-for-lambda/build/archive/$TIMESTAMP/ directory not found"
+          find configs/ffmpeg-for-lambda/ -name "*.zip" -type f
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: ffmpeg-arm64-build
-          path: build/archive/${TIMESTAMP}
+          path: configs/ffmpeg-for-lambda/build/archive/${{ env.TIMESTAMP }}
           retention-days: 7
+          if-no-files-found: warn

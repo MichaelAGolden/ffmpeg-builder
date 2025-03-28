@@ -28,37 +28,53 @@ jobs:
 
       - name: Build FFmpeg for all architectures
         run: |
+          cd configs/ffmpeg-for-lambda/
           ./build.sh --timestamp ${TIMESTAMP}
+
+      - name: List artifact directories
+        run: |
+          echo "Checking for build artifacts..."
+          echo "Working directory: $(pwd)"
+          ls -la configs/ffmpeg-for-lambda/build/ || echo "configs/ffmpeg-for-lambda/build/ directory not found"
+          ls -la configs/ffmpeg-for-lambda/build/archive/ || echo "configs/ffmpeg-for-lambda/build/archive/ directory not found"
+          ls -la configs/ffmpeg-for-lambda/build/archive/$TIMESTAMP/ || echo "configs/ffmpeg-for-lambda/build/archive/$TIMESTAMP/ directory not found"
+          find configs/ffmpeg-for-lambda/ -name "*.zip" -type f
 
       - name: Create build summary
         run: |
-          echo "Creating build summary..."
-          cat > "build/${TIMESTAMP}/summary.txt" << EOF
-          FFmpeg Build Summary
-          ===================
-          Build ID: ${TIMESTAMP}
-          Date: $(date)
+          if [ -d "configs/ffmpeg-for-lambda/build/${TIMESTAMP}" ]; then
+            echo "Creating build summary..."
+            cat > "configs/ffmpeg-for-lambda/build/${TIMESTAMP}/summary.txt" << EOF
+            FFmpeg Build Summary
+            ===================
+            Build ID: ${TIMESTAMP}
+            Date: $(date)
 
-          This build includes:
-          - AMD64 binaries for Amazon Lambda
-          - ARM64 binaries for Amazon Lambda
+            This build includes:
+            - AMD64 binaries for Amazon Lambda
+            - ARM64 binaries for Amazon Lambda
 
-          Archives:
-          - build/archive/${TIMESTAMP}/ffmpeg-amd64_${TIMESTAMP}.zip
-          - build/archive/${TIMESTAMP}/ffmpeg-arm64_${TIMESTAMP}.zip
-          - build/archive/${TIMESTAMP}/ffmpeg-combined_${TIMESTAMP}.zip
+            Archives:
+            - build/archive/${TIMESTAMP}/ffmpeg-amd64_${TIMESTAMP}.zip
+            - build/archive/${TIMESTAMP}/ffmpeg-arm64_${TIMESTAMP}.zip
+            - build/archive/${TIMESTAMP}/ffmpeg-combined_${TIMESTAMP}.zip
 
-          EOF
+            EOF
 
-          # Copy the summary to the archive directory
-          cp "build/${TIMESTAMP}/summary.txt" "build/archive/${TIMESTAMP}/"
+            # Copy the summary to the archive directory
+            mkdir -p "configs/ffmpeg-for-lambda/build/archive/${TIMESTAMP}/"
+            cp "configs/ffmpeg-for-lambda/build/${TIMESTAMP}/summary.txt" "configs/ffmpeg-for-lambda/build/archive/${TIMESTAMP}/"
 
-          # Create a latest.txt file with the current build timestamp
-          echo "${TIMESTAMP}" > "build/latest.txt"
+            # Create a latest.txt file with the current build timestamp
+            echo "${TIMESTAMP}" > "configs/ffmpeg-for-lambda/build/latest.txt"
+          else
+            echo "configs/ffmpeg-for-lambda/build/${TIMESTAMP} directory doesn't exist, skipping summary creation"
+          fi
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: ffmpeg-combined-build
-          path: build/archive/${TIMESTAMP}
+          path: configs/ffmpeg-for-lambda/build/archive/${{ env.TIMESTAMP }}
           retention-days: 7
+          if-no-files-found: warn
