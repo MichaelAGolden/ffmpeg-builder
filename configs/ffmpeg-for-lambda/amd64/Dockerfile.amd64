@@ -24,6 +24,7 @@ WORKDIR /ffmpeg_build
 ENV HOME="/ffmpeg_build" \
   PATH="/ffmpeg_build/bin:${PATH}"
 
+
 # Install NASM
 RUN mkdir -p /ffmpeg_sources && \
   cd /ffmpeg_sources && \
@@ -44,7 +45,10 @@ RUN cd /ffmpeg_sources && \
   make -j$(nproc) && \
   make install
 
+
+
 # Install fdk-aac
+
 RUN cd /ffmpeg_sources && \
   git clone --depth 1 https://github.com/mstorsjo/fdk-aac.git && \
   cd fdk-aac && \
@@ -70,7 +74,6 @@ RUN cd /ffmpeg_sources && \
   ./configure --prefix="/ffmpeg_build" --disable-shared && \
   make -j$(nproc) && \
   make install
-
 
 # Build FFmpeg
 RUN cd /ffmpeg_sources && \
@@ -132,15 +135,9 @@ RUN cd /ffmpeg_sources && \
   --enable-decoder=wavpack \
   --enable-small \
   --enable-cross-compile \
-  --arch=aarch64 \
+  --arch=x86_64 \
   --target-os=linux && \
   make -j$(nproc) && \
   make install && \
-  cp ../ffmpeg_version.sh . && \
   strip /ffmpeg_build/bin/ffmpeg && \
   strip /ffmpeg_build/bin/ffprobe
-
-
-# Copy the version script into the sources directory
-COPY ffmpeg_version.sh /ffmpeg_sources/
-

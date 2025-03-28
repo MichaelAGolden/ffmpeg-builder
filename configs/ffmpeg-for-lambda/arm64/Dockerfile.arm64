@@ -1,4 +1,4 @@
-FROM public.ecr.aws/lambda/provided:al2023-x86_64
+FROM public.ecr.aws/amazonlinux/amazonlinux:2023
 
 # Install dependencies
 RUN dnf update -y && \
@@ -22,8 +22,8 @@ RUN dnf update -y && \
 # Set up build directories
 WORKDIR /ffmpeg_build
 ENV HOME="/ffmpeg_build" \
-  PATH="/ffmpeg_build/bin:${PATH}" \
-  PKG_CONFIG_PATH="/ffmpeg_build/lib/pkgconfig"
+  PATH="/ffmpeg_build/bin:${PATH}"
+
 
 # Install NASM
 RUN mkdir -p /ffmpeg_sources && \
@@ -45,7 +45,10 @@ RUN cd /ffmpeg_sources && \
   make -j$(nproc) && \
   make install
 
+
+
 # Install fdk-aac
+
 RUN cd /ffmpeg_sources && \
   git clone --depth 1 https://github.com/mstorsjo/fdk-aac.git && \
   cd fdk-aac && \
@@ -71,7 +74,6 @@ RUN cd /ffmpeg_sources && \
   ./configure --prefix="/ffmpeg_build" --disable-shared && \
   make -j$(nproc) && \
   make install
-
 
 # Build FFmpeg
 RUN cd /ffmpeg_sources && \
@@ -132,17 +134,10 @@ RUN cd /ffmpeg_sources && \
   --enable-decoder=vorbis \
   --enable-decoder=wavpack \
   --enable-small \
-  --disable-x86asm \
-  --disable-inline-asm \
-  --arch=x86_64 && \
+  --enable-cross-compile \
+  --arch=aarch64 \
+  --target-os=linux && \
   make -j$(nproc) && \
   make install && \
-  cp ../ffmpeg_version.sh . && \
   strip /ffmpeg_build/bin/ffmpeg && \
   strip /ffmpeg_build/bin/ffprobe
-
-# Show binary sizes
-RUN ls -lh /ffmpeg_build/bin/ffmpeg /ffmpeg_build/bin/ffprobe
-
-# Default command
-CMD ["echo", "FFmpeg build complete. Extract the binaries with docker cp."]
