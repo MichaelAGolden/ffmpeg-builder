@@ -4,7 +4,7 @@ set -eo pipefail # Exit on error, handle pipeline errors
 # Define architecture and paths
 ARCH="amd64"
 CONFIG_DIR="."
-DOCKERFILE="${CONFIG_DIR}/Dockerfile.amd64"
+DOCKERFILE="Dockerfile.amd64"
 
 # Default settings
 TIMESTAMP="local_$(date +%Y%m%dT%H%M%S)"

@@ -6,7 +6,7 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest-arm
     env:
       TIMESTAMP: ${{ github.run_id }}_${{ github.run_number }}
       ARCH: arm64
