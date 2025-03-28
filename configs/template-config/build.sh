@@ -12,12 +12,12 @@ ARCHIVE_DIR="build/archive/${TIMESTAMP}"
 # Parse command line arguments
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --arch_type1-only)
+    --amd64-only)
       BUILD_ALL=false
       BUILD_ARCH_TYPE1=true
       shift
       ;;
-    --arch_type2-only)
+    --arm64-only)
       BUILD_ALL=false
       BUILD_ARCH_TYPE2=true
       shift
@@ -47,8 +47,8 @@ done
 
 # Set which architectures to build
 if [ "$BUILD_ALL" = true ]; then
-  BUILD_AMD64=true
-  BUILD_ARM64=true
+  BUILD_ARCH_TYPE1=true
+  BUILD_ARCH_TYPE2=true
 fi
 
 # Create output directories
@@ -56,22 +56,22 @@ mkdir -p "${OUTPUT_DIR}"
 mkdir -p "${ARCHIVE_DIR}"
 echo "Output directories created under ${OUTPUT_DIR}"
 
-# Build ARCH_TYPE1 if enabled
+# Build AMD64 if enabled
 if [ "$BUILD_ARCH_TYPE1" = true ]; then
   echo "=== Starting ARCH_TYPE1 build ==="
-  ./configs/template-config/arch_type1/build.sh --timestamp "${TIMESTAMP}" --output-dir "${OUTPUT_DIR}"
+  ./arch_type1/build.sh --timestamp "${TIMESTAMP}" --output-dir "${OUTPUT_DIR}"
   echo "=== ARCH_TYPE1 build completed ==="
 fi
 
 # Build ARCH_TYPE2 if enabled
 if [ "$BUILD_ARCH_TYPE2" = true ]; then
   echo "=== Starting ARCH_TYPE2 build ==="
-  ./configs/template-config/arch_type2/build.sh --timestamp "${TIMESTAMP}" --output-dir "${OUTPUT_DIR}"
+  ./arch_type2/build.sh --timestamp "${TIMESTAMP}" --output-dir "${OUTPUT_DIR}"
   echo "=== ARCH_TYPE2 build completed ==="
 fi
 
 # Create combined deployment package if both architectures were built
-if [ "$BUILD_AMD64" = true ] && [ "$BUILD_ARM64" = true ]; then
+if [ "$BUILD_ARCH_TYPE1" = true ] && [ "$BUILD_ARCH_TYPE2" = true ]; then
   echo "=== Creating combined deployment package ==="
   ZIP_NAME="template-config_${TIMESTAMP}.zip"
   ABS_ZIP_PATH="$(pwd)/${ARCHIVE_DIR}/${ZIP_NAME}"

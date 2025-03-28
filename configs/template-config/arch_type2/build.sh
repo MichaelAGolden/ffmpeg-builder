@@ -1,9 +1,9 @@
 #!/bin/bash
 set -eo pipefail # Exit on error, handle pipeline errors
 
-ARCH="arch_type1"
+ARCH="arch_type2"
 CONFIG_DIR="$(dirname "$0")"
-DOCKERFILE="${CONFIG_DIR}/Dockerfile.arch_type1"
+DOCKERFILE="${CONFIG_DIR}/Dockerfile.arch_type2"
 
 # Default settings
 TIMESTAMP="local_$(date +%Y%m%dT%H%M%S)"
